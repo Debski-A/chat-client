@@ -126,6 +126,7 @@ public class App extends Application {
         innerUsersList = FXCollections.observableList(new ArrayList<>());
         users.setItems(innerUsersList);
         users.setPrefSize(150, 600);
+
         HBox root = new HBox(10, messagesContainer, users);
         root.setPrefSize(760, 600);
         return root;
@@ -141,8 +142,9 @@ public class App extends Application {
         NavigableSet<Message> messages = chatData.getMessages();
         List<String> messagesL = messages.stream().map(m -> m.getMessageFullContent()).collect(Collectors.toList());
         chatData.getMessages().forEach(msg -> System.out.println(msg.getMessageFullContent()));
-        // metoda startRefereshInterval() odpalana jest w nowym wątku. GUI JavaFX moze być zmieniane tylko z poziomu
-        // głownego wątku (czyli watku z metody main)
+        //metoda startRefereshInterval() odpalana jest w nowym wątku. GUI JavaFX moze być zmieniane tylko z poziomu
+        //głownego wątku JavaFX (czyli watku z metody main). Rozwiazaniem jest metoda Platform.runLater, ktora
+        //wstrzeliwjue sie w "wolny czas" glownego watku i odpala na nim swoj kawalek ponizszego kodu,ktory zmienia GUI
         Platform.runLater(() -> {
             innerMessagesList.clear();
             innerMessagesList.addAll(messagesL);
@@ -152,6 +154,7 @@ public class App extends Application {
 
     private void refreshUsersList() {
         chatData.getUsers().forEach(usr -> System.out.println(usr));
+        // jak wyzej
         Platform.runLater(() -> {
             innerUsersList.clear();
             innerUsersList.addAll(chatData.getUsers());
