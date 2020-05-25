@@ -147,7 +147,6 @@ public class App extends Application {
         Platform.runLater(() -> {
             innerMessagesList.clear();
             innerMessagesList.addAll(messagesL);
-            this.messages.refresh();
         });
     }
 
@@ -156,7 +155,6 @@ public class App extends Application {
         Platform.runLater(() -> {
             innerUsersList.clear();
             innerUsersList.addAll(chatData.getUsers());
-            users.refresh();
         });
     }
 
