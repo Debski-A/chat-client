@@ -39,7 +39,7 @@ public class App extends Application {
     private String username;
     private volatile boolean isWindowClosed = false;
     private volatile boolean isXmlRpcEnabled = false;
-    private ChatData chatData;
+    private ChatDataSingleton chatDataSingleton;
     private ListView<String> users;
     private ObservableList<String> innerUsersList;
     private ListView<String> messages;
@@ -178,19 +178,19 @@ public class App extends Application {
     }
 
     private void refresh() {
-        chatData = chatServer.refresh();
+        chatDataSingleton = chatServer.refresh();
         refreshUsersList();
         refreshMessagesHistory();
     }
 
     private void refreshXmlRpc() throws XmlRpcException {
-        chatData = (ChatData) chatServerXmlRpc.execute("ChatServerXmlRpc.refresh", new Object[0]);
+        chatDataSingleton = (ChatDataSingleton) chatServerXmlRpc.execute("ChatServerXmlRpc.refresh", new Object[0]);
         refreshUsersList();
         refreshMessagesHistory();
     }
 
     private void refreshMessagesHistory() {
-        NavigableSet<Message> messages = chatData.getMessages();
+        NavigableSet<Message> messages = chatDataSingleton.getMessages();
         List<String> messagesL = messages.stream().map(m -> m.getMessageFullContent()).collect(Collectors.toList());
         //metoda startRefereshInterval() odpalana jest w nowym wątku. GUI JavaFX moze być zmieniane tylko z poziomu
         //głownego wątku JavaFX (czyli watku z metody main). Rozwiazaniem jest metoda Platform.runLater, ktora
@@ -205,7 +205,7 @@ public class App extends Application {
         // jak wyzej
         Platform.runLater(() -> {
             innerUsersList.clear();
-            innerUsersList.addAll(chatData.getUsers());
+            innerUsersList.addAll(chatDataSingleton.getUsers());
         });
     }
 

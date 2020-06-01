@@ -6,20 +6,20 @@ import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class ChatData implements Serializable {
+public class ChatDataSingleton implements Serializable {
 
     // Klasa jest singletonem, bo bedzie wspodzielona miedzy wywolaniami Hessian i XML RPC
     // singleton oznacza, ze podczas "życia" aplikacja będzie dostępna tylko JEDNA instancja tej klasy
-    private static ChatData single_instance = null;
+    private static ChatDataSingleton single_instance = null;
     private Set<String> users = new HashSet<>();
     private NavigableSet<Message> messages = new TreeSet<>();
 
-    private ChatData() {
+    private ChatDataSingleton() {
     }
 
-    public static ChatData ChatData() {
+    public static ChatDataSingleton ChatData() {
         if (single_instance == null) {
-            single_instance = new ChatData();
+            single_instance = new ChatDataSingleton();
         }
         return single_instance;
     }
