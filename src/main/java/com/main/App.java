@@ -8,9 +8,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -18,8 +16,12 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
+import org.apache.xmlrpc.XmlRpcException;
+import org.apache.xmlrpc.client.XmlRpcClient;
+import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NavigableSet;
@@ -33,8 +35,10 @@ public class App extends Application {
 
     private Stage stage;
     private ChatServerApi chatServer;
+    private XmlRpcClient chatServerXmlRpc;
     private String username;
     private volatile boolean isWindowClosed = false;
+    private volatile boolean isXmlRpcEnabled = false;
     private ChatData chatData;
     private ListView<String> users;
     private ObservableList<String> innerUsersList;
@@ -46,7 +50,7 @@ public class App extends Application {
     }
 
     @Override
-    public void start(Stage stage) throws MalformedURLException {
+    public void start(Stage stage) throws MalformedURLException, XmlRpcException {
         this.stage = stage;
         String serverEndpoint = "http://localhost:8080/chat-server/chat";
         HessianProxyFactory hessianProxyFactory = new HessianProxyFactory();
@@ -55,6 +59,13 @@ public class App extends Application {
             isWindowClosed = true;
             chatServer.userLeft(username);
         });
+
+        XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
+        config.setEnabledForExtensions(true);
+        config.setServerURL(new URL("http://localhost:8080/chat-server/chat-xml-rpc"));
+        chatServerXmlRpc = new XmlRpcClient();
+        chatServerXmlRpc.setConfig(config);
+
         Parent chatEntrance = createChatEntrance();
         stage.setScene(new Scene(chatEntrance));
         stage.show();
@@ -99,8 +110,12 @@ public class App extends Application {
             while (!isWindowClosed) {
                 try {
                     Thread.sleep(500);
-                    refresh();
-                } catch (InterruptedException e) {
+                    if (isXmlRpcEnabled) {
+                        refreshXmlRpc();
+                    } else {
+                        refresh();
+                    }
+                } catch (InterruptedException | XmlRpcException e) {
                     // try catch konieczny ze wzgledu na Thread.sleep
                 }
             }
@@ -115,7 +130,16 @@ public class App extends Application {
         TextField input = new TextField();
         input.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
-                chatServer.sendMessage(new Message(username, input.getText()));
+                if (isXmlRpcEnabled) {
+                    Object[] params = new Object[]{new Message(username, input.getText())};
+                    try {
+                        chatServerXmlRpc.execute("ChatServerXmlRpc.sendMessage", params);
+                    } catch (XmlRpcException xmlRpcException) {
+                        xmlRpcException.printStackTrace();
+                    }
+                } else {
+                    chatServer.sendMessage(new Message(username, input.getText()));
+                }
                 input.setText("");
             }
         });
@@ -125,15 +149,42 @@ public class App extends Application {
         users = new ListView<>();
         innerUsersList = FXCollections.observableList(new ArrayList<>());
         users.setItems(innerUsersList);
-        users.setPrefSize(150, 600);
+        users.setPrefSize(150, 550);
+        final ToggleGroup group = new ToggleGroup();
+        RadioButton hessianRadio = new RadioButton("Hessian");
+        hessianRadio.setToggleGroup(group);
+        hessianRadio.setSelected(true);
+        RadioButton xmlRpcRadio = new RadioButton("XML-RPC");
+        xmlRpcRadio.setToggleGroup(group);
+        // w zalezonosci od zaznaczonego Radio Buttona komunikacja z serwerem bedzie sie odbywac przez Hessian
+        // lub XML RPC
+        hessianRadio.setOnMouseClicked(e -> {
+            if (hessianRadio.isSelected()) {
+                isXmlRpcEnabled = false;
+            }
+        });
+        xmlRpcRadio.setOnMouseClicked(e -> {
+            if (xmlRpcRadio.isSelected()) {
+                isXmlRpcEnabled = true;
+            }
+        });
 
-        HBox root = new HBox(10, messagesContainer, users);
+        VBox usersAndSwitchContainer = new VBox(20, users, hessianRadio, xmlRpcRadio);
+        messagesContainer.setPrefSize(600, 600);
+
+        HBox root = new HBox(10, messagesContainer, usersAndSwitchContainer);
         root.setPrefSize(760, 600);
         return root;
     }
 
     private void refresh() {
         chatData = chatServer.refresh();
+        refreshUsersList();
+        refreshMessagesHistory();
+    }
+
+    private void refreshXmlRpc() throws XmlRpcException {
+        chatData = (ChatData) chatServerXmlRpc.execute("ChatServerXmlRpc.refresh", new Object[0]);
         refreshUsersList();
         refreshMessagesHistory();
     }
